@@ -1,0 +1,403 @@
+openapi: 3.1.0
+info:
+  title: Toi Yêu Yuri Online Judge (tyyoj) API
+  version: 0.1.0
+  description: >
+    REST API for the Toi Yêu Yuri Online Judge (tyyoj) platform, covering
+    authentication, problem statements with Markdown/KaTeX, submissions,
+    live verdicts, and Admin-controlled Docker Judger fleet provisioning.
+  contact:
+    name: Toi Yêu Yuri Online Judge Team
+    email: toiyeuyuriiiii+github@gmail.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user account
+      operationId: registerUser
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registration initiated; verification email sent
+        '400':
+          description: Validation error or username/email already taken
+
+  /auth/login:
+    post:
+      summary: Authenticate user and obtain JWT tokens
+      operationId: loginUser
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials or unverified email
+
+  /problems:
+    get:
+      summary: List available problems
+      operationId: listProblems
+      tags: [Problems]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of problems
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProblemSummary'
+
+  /problems/{id}:
+    get:
+      summary: Get problem details by ID
+      operationId: getProblem
+      tags: [Problems]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Problem details including Markdown statement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Problem not found
+
+  /submissions:
+    post:
+      summary: Submit solution code
+      operationId: createSubmission
+      tags: [Submissions]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubmissionRequest'
+      responses:
+        '202':
+          description: Submission queued for judging
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+
+  /submissions/{id}:
+    get:
+      summary: Get submission status and verdict
+      operationId: getSubmission
+      tags: [Submissions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Submission details and test case verdicts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionDetail'
+
+  /admin/judgers:
+    get:
+      summary: List all provisioned persistent judger workers
+      operationId: listAdminJudgers
+      tags: [Admin Judger Fleet]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of active and stopped judger containers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JudgerWorker'
+    post:
+      summary: Provision new persistent judger container via Docker Engine API
+      operationId: createAdminJudger
+      tags: [Admin Judger Fleet]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJudgerRequest'
+      responses:
+        '201':
+          description: Judger container created and started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JudgerWorker'
+
+  /admin/judgers/{id}/stop:
+    post:
+      summary: Stop a persistent judger container
+      operationId: stopAdminJudger
+      tags: [Admin Judger Fleet]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Judger container stopped
+
+  /admin/judgers/{id}:
+    delete:
+      summary: Remove a persistent judger container
+      operationId: removeAdminJudger
+      tags: [Admin Judger Fleet]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Judger container removed successfully
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginRequest:
+      type: object
+      required: [username_or_email, password]
+      properties:
+        username_or_email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 86400
+
+    ProblemSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: P1001
+        title:
+          type: string
+          example: "A + B Problem"
+        time_limit_ms:
+          type: integer
+          example: 1000
+        memory_limit_mb:
+          type: integer
+          example: 256
+        judge_mode:
+          $ref: '#/components/schemas/JudgeMode'
+
+    ProblemDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProblemSummary'
+        - type: object
+          properties:
+            statement_markdown:
+              type: string
+              description: Markdown statement with inline ($...$) and block ($$...$$) KaTeX formulas
+            sample_test_cases:
+              type: array
+              items:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  output:
+                    type: string
+
+    CreateSubmissionRequest:
+      type: object
+      required: [problem_id, language, source_code]
+      properties:
+        problem_id:
+          type: string
+          format: uuid
+        language:
+          $ref: '#/components/schemas/SubmissionLanguage'
+        source_code:
+          type: string
+
+    SubmissionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/SubmissionVerdict'
+        created_at:
+          type: string
+          format: date-time
+
+    SubmissionDetail:
+      allOf:
+        - $ref: '#/components/schemas/SubmissionResponse'
+        - type: object
+          properties:
+            execution_time_ms:
+              type: integer
+            memory_used_kb:
+              type: integer
+            compile_log:
+              type: string
+            test_results:
+              type: array
+              items:
+                type: object
+                properties:
+                  test_case:
+                    type: integer
+                  verdict:
+                    $ref: '#/components/schemas/SubmissionVerdict'
+                  time_ms:
+                    type: integer
+                  memory_kb:
+                    type: integer
+
+    JudgerWorker:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "judger-worker-1"
+        container_id:
+          type: string
+        status:
+          type: string
+          enum: [created, running, stopped, dead]
+        heartbeat_timestamp:
+          type: string
+          format: date-time
+        active_job_id:
+          type: string
+          nullable: true
+
+    CreateJudgerRequest:
+      type: object
+      properties:
+        worker_name:
+          type: string
+          example: "worker-prod-1"
+        cpu_quota:
+          type: number
+          default: 1.0
+        memory_limit_mb:
+          type: integer
+          default: 1024
+
+    JudgeMode:
+      type: string
+      enum: [Standard, CustomChecker, Interactive]
+
+    SubmissionLanguage:
+      type: string
+      enum: [Cpp20, Pascal, Python3]
+
+    SubmissionVerdict:
+      type: string
+      enum:
+        - PENDING
+        - COMPILING
+        - RUNNING
+        - ACCEPTED
+        - WRONG_ANSWER
+        - TIME_LIMIT_EXCEEDED
+        - MEMORY_LIMIT_EXCEEDED
+        - RUNTIME_ERROR
+        - COMPILATION_ERROR
+        - IDLENESS_LIMIT_EXCEEDED
