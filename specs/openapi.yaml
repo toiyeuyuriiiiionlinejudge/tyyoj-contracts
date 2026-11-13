@@ -5,7 +5,7 @@ info:
   description: >
     REST API for the Toi Yêu Yuri Online Judge (tyyoj) platform, covering
     authentication, problem statements with Markdown/KaTeX, submissions,
-    live verdicts, and Admin-controlled Docker Judger fleet provisioning.
+    live verdicts, and Admin-controlled Podman Judger fleet provisioning.
   contact:
     name: Toi Yêu Yuri Online Judge Team
     email: toiyeuyuriiiii+github@gmail.com
@@ -164,7 +164,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/JudgerWorker'
     post:
-      summary: Provision new persistent judger container via Docker Engine API
+      summary: Provision new persistent judger container via Podman Engine API
       operationId: createAdminJudger
       tags: [Admin Judger Fleet]
       security:
