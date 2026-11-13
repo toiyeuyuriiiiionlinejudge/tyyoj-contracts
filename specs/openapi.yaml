@@ -14,8 +14,10 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:8080/api/v1
-    description: Local development server
+  - url: /api/v1
+    description: Unified domain API endpoint (relative path)
+  - url: https://tyyoj.local/api/v1
+    description: Local unified domain
 
 paths:
   /auth/register:
